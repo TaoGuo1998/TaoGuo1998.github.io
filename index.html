@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>黑客帝国 - 数字雨效果</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+        }
+
+        canvas {
+            display: block;
+            background-color: #000;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00ff00;
+            font-size: 48px;
+            text-align: center;
+            opacity: 0;
+            animation: fadeIn 3s ease-in-out 2s forwards;
+            text-shadow: 0 0 20px #00ff00, 0 0 40px #00ff00;
+            z-index: 10;
+        }
+
+        .overlay h1 {
+            font-size: 72px;
+            margin-bottom: 20px;
+        }
+
+        .overlay p {
+            font-size: 36px;
+        }
+
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+
+        button {
+            background-color: #003300;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 8px 16px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #00ff00;
+            color: #000;
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        .input-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .input-container label {
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .input-container input {
+            background-color: rgba(0, 51, 0, 0.8);
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 10px 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            width: 250px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .input-container input:focus {
+            box-shadow: 0 0 15px #00ff00;
+            background-color: rgba(0, 51, 0, 0.95);
+        }
+
+        .input-container input::placeholder {
+            color: rgba(0, 255, 0, 0.5);
+        }
+
+        .input-container button {
+            width: fit-content;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="matrix"></canvas>
+    
+    <div class="overlay" id="displayOverlay">
+        <h1 id="displayTitle">Hello World!</h1>
+    </div>
+
+    <div class="input-container">
+        <label for="customText">自定义显示内容：</label>
+        <input type="text" id="customText" placeholder="输入要显示的内容..." value="Hello World!">
+        <button onclick="updateDisplay()">更新显示</button>
+    </div>
+
+    <div class="controls">
+        <button onclick="toggleSpeed()">切换速度</button>
+        <button onclick="toggleFullscreen()">全屏模式</button>
+        <button onclick="resetMatrix()">重置效果</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('matrix');
+        const ctx = canvas.getContext('2d');
+
+        // 设置画布尺寸
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // 字符集 - 包含数字、字母和符号
+        const characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!@#$%^&*()_+-=[]{}|;:,.<>?/~`';
+        const chineseChars = '的一是在不了有和人这中大为上个国我以要他时来用们生到作地于出就分对成会可主发年动同工也能下过子说产种面而方后多定行学法所民得经十三之进着等部度家电力里如水化高自二理起小物现实加量都两体制机当使点从业本去把性好应开它合还因由其些然前外天政四日那社义事平形相全表间样与关各重新线内数正心反你明看原又么利比或但质气第向道命此变条只没结解问意建月公无系军很情者最立代想已通并提直题党程展五果料象员革位入常文总次品式活设及管特件长求老头基资边流路级少图山统接知较将组见计别她手角期根论运农指几九区强放决西被干做必战先回则任取据处队南给色光门即保治北造百规热领七海口东导器压志世金增争济阶油思术极交受联什认六共权收证改清己美再采转更单风切打白教速花带安场身车例真务具万每目至达走积示议声报斗完类八离华名确才科张信马节话米整空元况今集温传土许步群广石记需段研界拉林律叫且究观越织装影算低持音众书布复容儿须际商非验连断深难近矿千周委素技备半办青省列习响约支般史感劳便团往酸历市克何除消构府称太准精值号率族维划选标写存候毛亲快效斯院查江型眼王按格养易置派层片始却专状育厂京识适属圆包火住调满县局照参红细引听该铁价严龙飞';
+        
+        const allCharacters = characters + chineseChars;
+        
+        const fontSize = 14;
+        const columns = Math.floor(canvas.width / fontSize);
+        
+        let drops = [];
+        let speeds = [];
+        let colors = [];
+        let speedMultiplier = 1;
+
+        // 初始化雨滴
+        function initDrops() {
+            drops = [];
+            speeds = [];
+            colors = [];
+            for (let i = 0; i < columns; i++) {
+                drops[i] = Math.random() * -100;
+                speeds[i] = Math.random() * 3 + 1;
+                colors[i] = Math.random() * 360;
+            }
+        }
+
+        // 绘制函数
+        function draw() {
+            // 半透明黑色覆盖，创建拖尾效果
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < drops.length; i++) {
+                // 随机选择字符
+                const text = allCharacters[Math.floor(Math.random() * allCharacters.length)];
+                
+                // 设置颜色 - 经典的矩阵绿色，带有一些变化
+                const greenIntensity = Math.floor(Math.random() * 100) + 155;
+                const alpha = Math.random() * 0.8 + 0.2;
+                
+                // 绘制字符
+                ctx.fillStyle = `rgba(0, ${greenIntensity}, 0, ${alpha})`;
+                ctx.font = `${fontSize}px monospace`;
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                // 重置雨滴位置
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                    speeds[i] = Math.random() * 3 + 1;
+                }
+                
+                // 更新雨滴位置
+                drops[i] += speeds[i] * speedMultiplier / 10;
+            }
+        }
+
+        // 动画循环
+        function animate() {
+            draw();
+            requestAnimationFrame(animate);
+        }
+
+        // 控制函数
+        function toggleSpeed() {
+            speedMultiplier = speedMultiplier === 1 ? 3 : speedMultiplier === 3 ? 0.5 : 1;
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function resetMatrix() {
+            initDrops();
+        }
+
+        // 窗口大小改变时重新设置
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initDrops();
+        });
+
+        // 键盘控制
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case ' ':
+                    e.preventDefault();
+                    toggleSpeed();
+                    break;
+                case 'f':
+                case 'F':
+                    toggleFullscreen();
+                    break;
+                case 'r':
+                case 'R':
+                    resetMatrix();
+                    break;
+            }
+        });
+
+        // 更新显示内容的函数
+        function updateDisplay() {
+            const customText = document.getElementById('customText').value || 'Hello World!';
+            document.getElementById('displayTitle').textContent = customText;
+            
+            // 重新触发动画效果
+            const overlay = document.getElementById('displayOverlay');
+            overlay.style.animation = 'none';
+            overlay.offsetHeight; // 强制回流
+            overlay.style.animation = 'fadeIn 3s ease-in-out forwards';
+        }
+
+        // 按下回车键时也更新显示
+        document.getElementById('customText').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                updateDisplay();
+            }
+        });
+
+        // 初始化并开始动画
+        initDrops();
+        animate();
+
+        // 添加一些额外的视觉效果
+        setInterval(() => {
+            // 偶尔添加闪烁效果
+            if (Math.random() > 0.95) {
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        }, 100);
+    </script>
+</body>
+</html>
